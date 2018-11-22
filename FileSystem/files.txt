@@ -1,0 +1,31 @@
+{
+    "files": [
+        {
+            "Type": "Root"
+        }
+    ],
+    "save.py": [
+        {
+            "Type": "F",
+            "Parent": "files",
+            "Node": "127.0.0.0/30000",
+            "Version": 0,
+            "Also": [
+                "127.0.0.0/30002"
+            ],
+            "Path": "/home/sando/Documents/ds/DS/FileSystem/files"
+        }
+    ],
+    "test": [
+        {
+            "Type": "D",
+            "Parent": "files"
+        }
+    ],
+    "test2": [
+        {
+            "Type": "D",
+            "Parent": "files"
+        }
+    ]
+}
