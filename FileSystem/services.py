@@ -1,5 +1,6 @@
 import settings as s
 from collections import Counter
+import random
 
 def rename(old, new):
     '''
@@ -19,9 +20,13 @@ def findFile(name):
     Description: Find file information.
     Returns None if File Not Found
     '''
+    nodes = []
     #file is present and we are not doing this to a directory
     if name in s.FILES.keys() and s.FILES[name][-1]['Type'] != 'D':
-        return [s.FILES[name][-1]['Node'] , s.FILES[name][-1]['Also']]
+        nodes.append(s.FILES[name][-1]['Node'])
+        for also in s.FILES[name][-1]['Also']:
+            nodes.append(also)
+        return nodes
     else:
         return False
 
@@ -59,11 +64,18 @@ def NodeToSaveOn():
     for items, des in s.FILES.items():
         if 'Node' in des[-1].keys():
             counts[des[-1]['Node']] += 1
-            counts[des[-1]['Also'][-1]] += 1
+        if 'Also' in des[-1].keys():
+            if len(des[-1]['Also']) > 0:
+                counts[des[-1]['Also'][-1]] += 1
 
+        if len(counts) < len(s.SERVERS):
+            for server in s.SERVERS.keys():
+                if server not in counts.keys():
+                    return server
         #sort
-        counts = counts.most_common()
-        return counts[-1][0]
+        if len(counts) > 0:
+            counts = counts.most_common()
+            return counts[-1][0]
 
     return None
 
@@ -72,23 +84,42 @@ def replicate():
     Description: Replication function that runs on file creation.
     Assumption: Majority of the servers should have replication.
     '''
-    #count the number of servers we have
-    files = s.FILES
     counts = Counter()
     for items, des in s.FILES.items():
         if 'Node' in des[-1].keys():
             counts[des[-1]['Node']] += 1
-            counts[des[-1]['Also'][-1]] += 1
+        if 'Also' in des[-1].keys():
+            if len(des[-1]['Also']) > 0:
+                counts[des[-1]['Also'][-1]] += 1
 
     #find how many nodes to replicate on
-    #int t get a whole number.
+    #int to get a whole number.
     #wont add the plus 1 because already saved on one server which is
     #the primary
     number = int(len(counts)/2)
     nodes = []
+    counts = counts.most_common()
+    if len(counts) == 0:
+        i =  random.randint(0,len(s.SERVERS))
+        nodes.append(list(s.SERVERS.keys())[i])
+        return nodes
 
-    for i in range(number):
-        nodes.append(counts[int('-'+i)][0])
+    if len(counts) == 1:
+        for server in s.SERVERS.keys():
+            if counts[0][0] == server:
+                pass
+            else:
 
-    return nodes
+                nodes.append(server)
+                return nodes
 
+    if len(counts) == 2:
+        nodes.append(counts[-2][0])
+        return nodes
+
+    if len(counts) > number:
+        for i in range(2,(2+number)):
+            nodes.append(counts[int('-'+i)][0])
+        return nodes
+
+    return []

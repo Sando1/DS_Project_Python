@@ -4,25 +4,71 @@
             "Type": "Root"
         }
     ],
-    "save.py": [
+    "a.txt": [
         {
             "Type": "F",
             "Parent": "files",
-            "Node": "127.0.0.0/30000",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/a.txt",
             "Version": 0,
             "Also": [
-                "127.0.0.0/30002"
-            ],
-            "Path": "/home/sando/Documents/ds/DS/FileSystem/files"
+                "127.0.0.1/30000"
+            ]
         }
     ],
-    "test": [
+    "blah": [
         {
             "Type": "D",
             "Parent": "files"
         }
     ],
-    "test2": [
+    "b.txt": [
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/b.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30001"
+            ]
+        },
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Version": 1,
+            "Node": "127.0.0.1/30000",
+            "Also": [
+                "127.0.0.1/30001"
+            ],
+            "Path": "files/1b.txt"
+        }
+    ],
+    "c.txt": [
+        {
+            "Type": "F",
+            "Parent": "files",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/c.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30000"
+            ]
+        }
+    ],
+    "blah2": [
+        {
+            "Type": "D",
+            "Parent": "files"
+        }
+    ],
+    "blah3": [
+        {
+            "Type": "D",
+            "Parent": "blah2"
+        }
+    ],
+    "blah4": [
         {
             "Type": "D",
             "Parent": "files"

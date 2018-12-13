@@ -53,13 +53,13 @@ def loadFs():
             #error in open
             f2 = open(s.FILES_FILE,'a+')
             f2.close()
-            return {}
+            return {"files": [{ "Type": "Root"}]}
         except (IOError,ValueError) as e:
             #flush everything from the file and start from 0
             f2 = open(s.FILES_FILE, 'w+')
             f2.close()
-            return {}
-        return {}
+            return {"files": [{ "Type": "Root"}]}
+        return {"files": [{ "Type": "Root"}]}
 
 def boot():
     '''
@@ -77,26 +77,26 @@ def boot():
             host = data['host'] if 'host' in data else ''
             port = data['port'] if 'port' in data else ''
             connections = data['connections'] if 'connections' in data else {}
-
+            servers = data['servers'] if 'servers' in data else {}
             #make files folder
             if not os.path.isdir('files'):
                 os.mkdir('files')
             f.close()
-            return (connections, host, port)
+            return (connections, host, port, servers)
     except OSError as e:
         #error in open
-        print(e)
+        print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE,'a+')
         f.close()
-        return ({}, '', 0 )
+        return ({}, '', 0, '')
     except (IOError,ValueError) as e:
         #flush everything from the file and start from 0
-        print(e)
+        print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE, 'w+')
         f.close()
-        return ({},'', 0)
+        return ({},'', 0, '')
 
-    return ({}, None, None)
+    return ({}, None, None, {})
 
 async def main():
     #initialise globals
@@ -104,31 +104,44 @@ async def main():
 
     #connections, files can be empty. shows starting from scratch
     #try and boot
-    connections, s.HOST, s.PORT = boot()
+    connections, s.HOST, s.PORT, s.SERVERS = boot()
     s.FILES = loadFs()
-
+    if s.FILES == None:
+        s.FILES = {"files": [{ "Type": "Root"}]}
     #if there was an error, exit
     if None in [s.HOST,s.PORT]:
         print('Error in Boot')
+        sys.exit(0)
+
+    #bind a socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((s.HOST, s.PORT))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        print("Socket successfully created")
+    except socket.error as e:
+        print("socket creation failed with error %s" %(e))
         sys.exit(0)
 
     #now try and connect from the connections already saved
     if len(connections) > 0:
         for connection, addr  in connections.items():
             try:
-                reader, writer = await asyncio.open_connection(addr['ip'] , addr['port'])
+                sock.connect((addr['ip'] , int(addr['port'])))
+                reader, writer = await asyncio.open_connection(sock=sock)
                 await client_connected(reader, writer)
             except Exception as e:
                 print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
 
     #make server.
     try:
-        server = await asyncio.start_server(client_connected, s.HOST, s.PORT)
+        server = await asyncio.start_server(client_connected, sock=sock)
         print('Server Starting on {} {} '.format(s.HOST, s.PORT))
         async with server:
-                await server.serve_forever()
+            await server.serve_forever()
     except asyncio.CancelledError:
         print('Closing Server: ')
+        sock.close()
     except Exception as e:
         print('Server Error :{}'.format(e))
 

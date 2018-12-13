@@ -2,12 +2,12 @@ import queue
 import struct
 import asyncio
 import dill
-import json
+import json, os
 
 import settings as s
 import services as sr
 
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, CONNCLIENT, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN = range(13)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -25,7 +25,6 @@ class Connection():
         self.writer = writer
         self.msg_q = asyncio.Queue()
         self.write_q = asyncio.Queue()
-        self.loop = asyncio.get_event_loop()
         self.readTask = asyncio.create_task(self.read())
         self.handleTask = asyncio.create_task(self.handle())
         self.writeTask = asyncio.create_task(self.write())
@@ -42,7 +41,7 @@ class Connection():
 
                 data = await self.reader.readexactly(length)
                 message = dill.loads(data)
-                print('received {} and {}'.format(message.command, message.data))
+                print('received {}'.format(message.command))
                 await self.msg_q.put(message)
             except (asyncio.CancelledError, asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
                 await self.endConnection()
@@ -90,22 +89,26 @@ class Connection():
                 if not node == None:
                     data[name]['Node'] = node
                     data[name]['Path'] = 'files/{}'.format(name)
-
+                    data[name]['Version'] = 0
                     #find node to replicate on
-                    nodesForReplication = replicate()
+                    nodesForReplication = sr.replicate()
+
                     #if some node found
                     if not nodesForReplication == None:
                         #save the Also of the data
-                        data[name]['Also'].append(nodesForReplication)
+                        data[name]['Also'] = nodesForReplication
 
                     #update the FS
                     s.FILES[name] = [data[name]]
-                    #send an update to all connections
+                    #send an update to all servers
                     for name, connection in s.CONNECTIONS.items():
-                        await connection.write_q.put(CommandObject(FS, s.FILES))
+                        if name in s.SERVERS.keys():
+                            await connection.write_q.put(CommandObject(FS, s.FILES))
 
                     #make an update in the local file
                     await self.updateFileFile()
+                    #send an update to client
+                    await self.write_q.put(CommandObject(FS, s.FILES))
                 print('message processed')
 
             if command.command == UPDATE:
@@ -120,16 +123,24 @@ class Connection():
                     #grab the last entry:
                     fileInfo = s.FILES[name][-1]
                     #add the new entry
-                    newEntry = {'Type':'F', 'Version': len(s.FILES[name]), 'Node':fileInfo['Node'],
-                        'Also':fileInfo['Also'], 'Path': 'temp/{}{}'.format(len(s.FILES[name]), name)}
+                    newEntry = {'Type':'F',
+                                'Parent':fileInfo['Parent'],
+                                'Version': len(s.FILES[name]),
+                                'Node':fileInfo['Node'],
+                                'Also':fileInfo['Also'], 'Path': 'files/{}{}'.format(len(s.FILES[name]), name)}
+
                     s.FILES[name].append(newEntry)
 
                 #make an update in the local file
                 await self.updateFileFile()
 
-                #send an update to all connections
+                #send an update to all servers
                 for name, connection in s.CONNECTIONS.items():
-                    await connection.write_q.put(CommandObject(FS, s.FILES))
+                    if name in s.SERVERS.keys():
+                        await connection.write_q.put(CommandObject(FS, s.FILES))
+
+                #send an update to client
+                await self.write_q.put(CommandObject(FS, s.FILES))
 
                 print('message processed')
 
@@ -166,12 +177,16 @@ class Connection():
                 #update Fs
                 s.FILES[name] = [data[name]]
 
-                #send an update to all connections
+                #send an update to all servers
                 for name, connection in s.CONNECTIONS.items():
-                    await connection.write_q.put(CommandObject(FS, s.FILES))
+                    if name in s.SERVERS.keys():
+                        await connection.write_q.put(CommandObject(FS, s.FILES))
 
                 #update Fs File
                 await self.updateFileFile()
+
+                #send an update to client
+                await self.write_q.put(CommandObject(FS, s.FILES))
                 print('message processed')
 
             if command.command == RENAME:
@@ -186,11 +201,15 @@ class Connection():
                 newName = command.data['new']
                 #if successful
                 if sr.rename(oldName, newName):
-                    #send an update to all connections
+                    #send an update to all servers
                     for name, connection in s.CONNECTIONS.items():
-                        await connection.write_q.put(CommandObject(FS, s.FILES))
+                        if name in s.SERVERS.keys():
+                            await connection.write_q.put(CommandObject(FS, s.FILES))
                     #update fs file
                     await self.updateFileFile()
+
+                    #send an update to client
+                    await self.write_q.put(CommandObject(FS, s.FILES))
 
                 print('message processed')
 
@@ -209,6 +228,7 @@ class Connection():
                 data = command.data
                 name = list(command.data.keys())[0]
                 nodes = sr.findFile(name)
+
                 #if current server is the primary server
                 if nodes[0] == '{}/{}'.format(s.HOST,s.PORT):
                     #save files in files folder
@@ -218,7 +238,6 @@ class Connection():
                         path = s.FILES[name][-1]['Path']
                         with open(path, 'w+') as f:
                             f.write(command.data[name])
-                            await self.write_q.put(CommandObject(SUCCESS))
                     except (IOError, OSError) as e:
                         print(e)
                 else:
@@ -235,16 +254,13 @@ class Connection():
                             path = s.FILES[name][-1]['Path']
                             with open(path, 'w+') as f:
                                 f.write(command.data[name])
-                                await self.write_q.put(CommandObject(SUCCESS))
                         except (IOError, OSError) as e:
                             print(e)
-                #send file to other server
+                #send file to other servers
                 #lazy approach. Send file after sending success response
-                if nodes[1] in s.CONNECTIONS.keys():
-                    await s.CONNECTIONS[nodes[1]].write_q.put(CommandObject(REPLICATEFILE, command.data))
-                else:
-                    #other server is not available
-                    pass
+                for i in range(1,len(nodes)):
+                    if nodes[i] in s.CONNECTIONS.keys():
+                        await s.CONNECTIONS[nodes[1]].write_q.put(CommandObject(REPLICATEFILE, command.data))
 
                 print('message processed')
 
@@ -278,7 +294,8 @@ class Connection():
                 response.
                 '''
                 nodes = sr.findFile(command.data)
-                if nodes == None:
+                if nodes == False:
+                    print('here')
                     #file does not exist
                     await self.write_q.put(CommandObject(ERROR))
                 #else file is on the current server
@@ -295,12 +312,11 @@ class Connection():
                 else:
                     #send conn request to the client to connect with the
                     #other server
-                    if nodes[0] in s.CONNECTIONS.keys():
-                        IP, PORT = nodes[0].split('/')
-                        await self.write_q.put(CommandObject(CONN, {'IP': IP, 'PORT':PORT}))
-                    elif nodes[1] in s.CONNECTIONS.keys():
-                        IP, PORT = nodes[1].split('/')
-                        await self.write_q.put(CommandObject(CONN, {'IP': IP, 'PORT':PORT}))
+                    for node in nodes:
+                        if node in s.CONNECTIONS.keys():
+                            IP, PORT = nodes[0].split('/')
+                            await self.write_q.put(CommandObject(CONN, {'IP': IP, 'PORT':PORT}))
+                            break
                 print('message processed')
 
             if command.command == QUIT:
@@ -319,7 +335,7 @@ class Connection():
                 '''
                 print('message processed')
 
-            if command.command == SUCCESS:
+            if command.command in [SUCCESS, INVALID]:
                 '''
                 SUCCESS COMMAND:
                 Server doesnt have to do anything
@@ -343,12 +359,13 @@ class Connection():
         finished. Once done, writer is close. connection finished.
         '''
         # Find all running tasks:
-        pending = asyncio.Task.all_tasks()
-
-        # Run loop until tasks done:
-        asyncio.gather(*pending)
-        self.writer.close()
-        print('Connection Ended')
-        return
+        try:
+            pending = asyncio.Task.all_tasks()
+            # Run loop until tasks done:
+            asyncio.gather(*pending)
+        finally:
+            self.writer.transport.close()
+            #print('Connection Ended')
+            return
 
 
