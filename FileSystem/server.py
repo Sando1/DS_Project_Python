@@ -1,12 +1,16 @@
 import socket
-import os
+import os, signal
 import json
 import sys
 import asyncio
-import errno
+import functools
 
 import settings as s
 import connection
+
+def handleSignal(signame):
+    print('Closing')
+    sys.exit(0)
 
 async def updateConfig():
     '''
@@ -26,15 +30,18 @@ async def updateConfig():
     with open(s.CONFIG_FILE, 'w+') as f:
         json.dump(data, f, indent=4)
 
-async def client_connected(reader, writer):
+async def client_connected(reader, writer, fs=False):
     '''
     Description: Accepts any connections that comes.
     Makes a connection instance that takes care of the reading and writing
+    Also, if fs = true, sends an FS request to the client.
     '''
 
     addr = writer.get_extra_info('peername')
-    print('connected with {} at {}'.format(addr[0],addr[1]))
+    #print('connected with {} at {}'.format(addr[0],addr[1]))
     s.CONNECTIONS[addr[0] +'/'+str(addr[1])] = connection.Connection(reader, writer)
+    if fs == True:
+        s.CONNECTIONS[addr[0] +'/'+str(addr[1])].sendFs()
     #update config
     await asyncio.create_task(updateConfig())
 
@@ -99,6 +106,12 @@ def boot():
     return ({}, None, None, {})
 
 async def main():
+    #register signal handler
+    loop = asyncio.get_running_loop()
+    for signame in {'SIGTSTP'}:
+        loop.add_signal_handler(
+            getattr(signal, signame),
+            functools.partial(handleSignal, signame))
     #initialise globals
     s.init()
 
@@ -129,9 +142,10 @@ async def main():
             try:
                 sock.connect((addr['ip'] , int(addr['port'])))
                 reader, writer = await asyncio.open_connection(sock=sock)
-                await client_connected(reader, writer)
+                await client_connected(reader, writer, fs=True)
             except Exception as e:
-                print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
+                #print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
+                pass
 
     #make server.
     try:
@@ -144,6 +158,7 @@ async def main():
         sock.close()
     except Exception as e:
         print('Server Error :{}'.format(e))
+        sock.close()
 
 #root path
 BASE_PATH = os.path.dirname(os.getcwd())

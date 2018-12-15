@@ -12,11 +12,41 @@
             "Path": "files/a.txt",
             "Version": 0,
             "Also": [
-                "127.0.0.1/30000"
+                "127.0.0.1/30001"
             ]
+        },
+        {
+            "Type": "F",
+            "Parent": "files",
+            "Version": 1,
+            "Node": "127.0.0.1/30000",
+            "Also": [
+                "127.0.0.1/30001"
+            ],
+            "Path": "files/1a.txt"
+        },
+        {
+            "Type": "F",
+            "Parent": "files",
+            "Version": 2,
+            "Node": "127.0.0.1/30000",
+            "Also": [
+                "127.0.0.1/30001"
+            ],
+            "Path": "files/2a.txt"
+        },
+        {
+            "Type": "F",
+            "Parent": "files",
+            "Version": 3,
+            "Node": "127.0.0.1/30000",
+            "Also": [
+                "127.0.0.1/30001"
+            ],
+            "Path": "files/3a.txt"
         }
     ],
-    "blah": [
+    "A": [
         {
             "Type": "D",
             "Parent": "files"
@@ -25,53 +55,150 @@
     "b.txt": [
         {
             "Type": "F",
-            "Parent": "blah",
+            "Parent": "A",
             "Node": "127.0.0.1/30000",
             "Path": "files/b.txt",
             "Version": 0,
             "Also": [
-                "127.0.0.1/30001"
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
             ]
         },
         {
             "Type": "F",
-            "Parent": "blah",
+            "Parent": "A",
             "Version": 1,
             "Node": "127.0.0.1/30000",
             "Also": [
-                "127.0.0.1/30001"
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
             ],
             "Path": "files/1b.txt"
+        }
+    ],
+    "b(1).txt": [
+        {
+            "Type": "F",
+            "Parent": "A",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/b(1).txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
+            ]
+        },
+        {
+            "Type": "F",
+            "Parent": "A",
+            "Version": 1,
+            "Node": "127.0.0.1/30000",
+            "Also": [
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
+            ],
+            "Path": "files/1b(1).txt"
+        }
+    ],
+    "blah": [
+        {
+            "Type": "D",
+            "Parent": "files"
         }
     ],
     "c.txt": [
         {
             "Type": "F",
-            "Parent": "files",
+            "Parent": "blah",
             "Node": "127.0.0.1/30000",
             "Path": "files/c.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
+            ]
+        }
+    ],
+    "c(1).txt": [
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/c(1).txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
+            ]
+        }
+    ],
+    "d.txt": [
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/d.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30000",
+                "127.0.0.1/30000"
+            ]
+        }
+    ],
+    "e.txt": [
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/e.txt",
             "Version": 0,
             "Also": [
                 "127.0.0.1/30000"
             ]
         }
     ],
-    "blah2": [
+    "f.txt": [
         {
-            "Type": "D",
-            "Parent": "files"
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/f.txt",
+            "Version": 0,
+            "Also": []
         }
     ],
-    "blah3": [
+    "g.txt": [
         {
-            "Type": "D",
-            "Parent": "blah2"
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/g.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30001"
+            ]
         }
     ],
-    "blah4": [
+    "h.txt": [
         {
-            "Type": "D",
-            "Parent": "files"
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/h.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30001"
+            ]
+        }
+    ],
+    "i.txt": [
+        {
+            "Type": "F",
+            "Parent": "blah",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/i.txt",
+            "Version": 0,
+            "Also": []
         }
     ]
 }

@@ -75,7 +75,27 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         self.setupUi(self)
         self.treeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.treeWidget.customContextMenuRequested.connect(self.contextMenu)
+        self.checkIncomplete()
         self.populate()
+        self.processes = []
+
+
+    def checkIncomplete(self):
+        '''
+        Description: Wrapper function to get async code running
+        '''
+        return self.loop.run_until_complete(self.__checkIncomplete())
+
+    async def __checkIncomplete(self):
+        '''
+        Description: Checks if nay files in temp folder not sent to
+        server. Sends file to server.
+        '''
+        onlyfiles = [f for f in os.listdir('temp/') if os.path.isfile(os.path.join('temp/', f))]
+        if len(onlyfiles) > 0:
+            for file in onlyfiles:
+                await self.__saveFileOnClose(file,0)
+
 
     def refresh(self):
         '''
@@ -88,7 +108,6 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         Description: Refreshes the client after every 5 secs to ensure
         the single system image requirement.
         '''
-
         async with self.client:
             data = CommandObject(FS)
             await self.client.send(data)
@@ -98,7 +117,24 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                 self.treeWidget.clear()
                 self.populate()
 
-        self.loop.call_later(5, self.refresh)
+
+    def closeEvent(self, event):
+        '''
+        Description: Wrapper closeEvent function to get async code running
+        '''
+        return self.loop.run_until_complete(self.__close())
+
+    async def __close(self):
+        '''
+        Description: Close event for the app. This will send a quit
+        command to the server, then kill all the child processes and
+        quit the app
+        '''
+        async with self.client:
+            data = CommandObject(QUIT)
+            await self.client.send(data)
+            for process in self.processes:
+                process.kill()
 
     def populate(self):
         '''
@@ -115,7 +151,9 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                     root.addChild(QtWidgets.QTreeWidgetItem([item, des[-1]['Type']]))
                 else:
                     pars = self.treeWidget.findItems(des[-1]['Parent'], QtCore.Qt.MatchContains|QtCore.Qt.MatchRecursive, 0)
-                    pars[0].addChild(QtWidgets.QTreeWidgetItem([item, des[-1]['Type']]))
+                    for par in pars:
+                        if par.text(1) == 'D':
+                            par.addChild(QtWidgets.QTreeWidgetItem([item, des[-1]['Type']]))
             self.treeWidget.expandToDepth(root.childCount())
 
     def getFs(self):
@@ -213,6 +251,15 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         if parent.isDisabled():
             parent.setDisabled(False)
 
+        #check name
+        if name in self.Fs.keys():
+            i = 1
+            temp = name.rsplit('.',1)
+            name = '{}({}).{}'.format(temp[0],i,temp[1])
+            while name in self.Fs.keys():
+                i += 1
+                name = '{}({}).{}'.format(temp[0],i,temp[1])
+
         #update FS
         self.Fs[name] = {'Type' : type, 'Parent': parent.text(0)}
 
@@ -221,6 +268,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
             process = QtCore.QProcess(self)
             process.finished.connect(functools.partial(self.saveFileOnClose, name))
             process.start(args)
+            self.processes.append(process)
             await self.__NewFsSave(name)
 
         elif command == 'newfolder':
@@ -353,6 +401,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                 process = QtCore.QProcess(self)
                 process.finished.connect(functools.partial(self.saveFileOnClose, name))
                 process.start(args)
+                self.processes.append(process)
                 #send the update command
                 data = CommandObject(UPDATE, name)
                 await self.client.send(data)

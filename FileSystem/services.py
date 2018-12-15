@@ -79,7 +79,7 @@ def NodeToSaveOn():
 
     return None
 
-def replicate():
+def replicate(nodeSaved):
     '''
     Description: Replication function that runs on file creation.
     Assumption: Majority of the servers should have replication.
@@ -96,30 +96,59 @@ def replicate():
     #int to get a whole number.
     #wont add the plus 1 because already saved on one server which is
     #the primary
-    number = int(len(counts)/2)
+    number = int(len(s.SERVERS)/2)+1
     nodes = []
     counts = counts.most_common()
+    servers = list(s.SERVERS.keys())
     if len(counts) == 0:
-        i =  random.randint(0,len(s.SERVERS))
-        nodes.append(list(s.SERVERS.keys())[i])
+        for _ in range(number):
+            i =  random.randint(0,len(servers)-1)
+            if servers[i] != nodeSaved and servers[i] not in nodes:
+                nodes.append(servers[i])
+            else:
+                if len(servers) > i+1:
+                    nodes.append(servers[i+1])
+                else:
+                    nodes.append(servers[i-1])
         return nodes
 
     if len(counts) == 1:
-        for server in s.SERVERS.keys():
-            if counts[0][0] == server:
+        for i in range(number):
+            if servers[i] == counts[0][0] or servers[i] == nodeSaved:
                 pass
             else:
-
-                nodes.append(server)
-                return nodes
+                nodes.append(servers[i])
+        return nodes
 
     if len(counts) == 2:
-        nodes.append(counts[-2][0])
+        for server in servers:
+            if server == nodeSaved:
+                pass
+            else:
+                print(server)
+                if server not in [counts[0][0],counts[1][0]]:
+                    #print(servers[i])
+                    nodes.append(server)
+                    if len(nodes) == number - 1:
+                        return nodes
         return nodes
 
     if len(counts) > number:
         for i in range(2,(2+number)):
-            nodes.append(counts[int('-'+i)][0])
+            nodes.append(counts[int('-'+str(i))][0])
         return nodes
 
-    return []
+    return nodes
+
+def checkName(name):
+    if name not in s.FILES.keys():
+        return name
+    else:
+        i = 1
+        temp = name.rsplit('.',1)
+        name = '{}({}).{}'.format(temp[0],i,temp[1])
+        while name in s.FILES.keys():
+            i += 1
+            name = '{}({}).{}'.format(temp[0],i,temp[1])
+
+    return name

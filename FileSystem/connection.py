@@ -29,6 +29,9 @@ class Connection():
         self.handleTask = asyncio.create_task(self.handle())
         self.writeTask = asyncio.create_task(self.write())
 
+    async def sendFs(self):
+        await self.write_q.put(CommandObject(FS))
+
     async def read(self):
         '''
         Description: Reads from the reader object,
@@ -41,7 +44,7 @@ class Connection():
 
                 data = await self.reader.readexactly(length)
                 message = dill.loads(data)
-                print('received {}'.format(message.command))
+                #print('received {}'.format(message.command))
                 await self.msg_q.put(message)
             except (asyncio.CancelledError, asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
                 await self.endConnection()
@@ -85,13 +88,17 @@ class Connection():
                 data = command.data
                 name = list(command.data.keys())[0]
                 #find node to save on
+                #check if file exists already or not.
+                #if exists create a new name for it
+                new_name = sr.checkName(name)
+
                 node = sr.NodeToSaveOn()
                 if not node == None:
                     data[name]['Node'] = node
                     data[name]['Path'] = 'files/{}'.format(name)
                     data[name]['Version'] = 0
                     #find node to replicate on
-                    nodesForReplication = sr.replicate()
+                    nodesForReplication = sr.replicate(node)
 
                     #if some node found
                     if not nodesForReplication == None:
@@ -99,7 +106,7 @@ class Connection():
                         data[name]['Also'] = nodesForReplication
 
                     #update the FS
-                    s.FILES[name] = [data[name]]
+                    s.FILES[new_name] = [data[name]]
                     #send an update to all servers
                     for name, connection in s.CONNECTIONS.items():
                         if name in s.SERVERS.keys():
@@ -174,6 +181,7 @@ class Connection():
                 '''
                 data = command.data
                 name = list(command.data.keys())[0]
+                name = sr.checkName(name)
                 #update Fs
                 s.FILES[name] = [data[name]]
 
@@ -295,7 +303,6 @@ class Connection():
                 '''
                 nodes = sr.findFile(command.data)
                 if nodes == False:
-                    print('here')
                     #file does not exist
                     await self.write_q.put(CommandObject(ERROR))
                 #else file is on the current server
@@ -325,8 +332,8 @@ class Connection():
                 Quit command sent by a server or client. The server runs the
                 end connection callback
                 '''
-                print('message gotten')
                 await self.endConnection()
+                print('message processed')
 
             if command.command == ERROR:
                 '''
