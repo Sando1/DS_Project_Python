@@ -8,7 +8,7 @@ def init():
     global HOST
     global PORT
 
-    CONFIG_FILE = 'config3.txt'
+    CONFIG_FILE = 'config2.txt'
     FILES_FILE = 'files.txt'
     SERVERS = {}
     CONNECTIONS = {}

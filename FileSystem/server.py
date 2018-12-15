@@ -42,6 +42,7 @@ async def client_connected(reader, writer, addrA=' ', portA=0, fs=False, conn=Fa
     if conn == True:
         curr = addrA+'/'+str(portA)
         s.CONNECTIONS[curr] = connection.Connection(reader, writer)
+        await s.CONNECTIONS[curr].updateConn()
     else:
         curr = addr[0] +'/'+str(addr[1])
         s.CONNECTIONS[curr] = connection.Connection(reader, writer)

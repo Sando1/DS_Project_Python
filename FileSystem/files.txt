@@ -118,5 +118,23 @@
                 "127.0.0.1/30000"
             ]
         }
+    ],
+    "blah2.txt": [
+        {
+            "Type": "D",
+            "Parent": "files"
+        }
+    ],
+    "m.txt": [
+        {
+            "Type": "F",
+            "Parent": "blah2.txt",
+            "Node": "127.0.0.1/30000",
+            "Path": "files/m.txt",
+            "Version": 0,
+            "Also": [
+                "127.0.0.1/30002"
+            ]
+        }
     ]
 }
