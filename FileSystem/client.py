@@ -9,7 +9,7 @@ import gui as main
 
 IP = 'localhost'
 PORT = 30000
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, CONNAGN = range(14)
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''

@@ -7,7 +7,7 @@ import json, os
 import settings as s
 import services as sr
 
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, CONNAGN = range(14)
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -30,6 +30,10 @@ class Connection():
         self.writeTask = asyncio.create_task(self.write())
 
     async def sendFs(self):
+        '''
+        Description: Function to send initial FS on load.
+        Only between servers
+        '''
         await self.write_q.put(CommandObject(FS))
 
     async def read(self):
@@ -344,12 +348,10 @@ class Connection():
 
             if command.command in [SUCCESS, INVALID]:
                 '''
-                SUCCESS COMMAND:
+                SUCCESS and INVALID COMMAND:
                 Server doesnt have to do anything
                 '''
                 print('message processed')
-
-            self.msg_q.task_done()
 
     async def updateFileFile(self):
         '''

@@ -30,20 +30,27 @@ async def updateConfig():
     with open(s.CONFIG_FILE, 'w+') as f:
         json.dump(data, f, indent=4)
 
-async def client_connected(reader, writer, fs=False):
+async def client_connected(reader, writer, addrA=' ', portA=0, fs=False, conn=False):
     '''
     Description: Accepts any connections that comes.
     Makes a connection instance that takes care of the reading and writing
     Also, if fs = true, sends an FS request to the client.
     '''
-
     addr = writer.get_extra_info('peername')
-    #print('connected with {} at {}'.format(addr[0],addr[1]))
-    s.CONNECTIONS[addr[0] +'/'+str(addr[1])] = connection.Connection(reader, writer)
+    print('connected with {} at {}'.format(addr[0],addr[1]))
+    curr = ' '
+    if conn == True:
+        curr = addrA+'/'+str(portA)
+        s.CONNECTIONS[curr] = connection.Connection(reader, writer)
+    else:
+        curr = addr[0] +'/'+str(addr[1])
+        s.CONNECTIONS[curr] = connection.Connection(reader, writer)
+
     if fs == True:
-        s.CONNECTIONS[addr[0] +'/'+str(addr[1])].sendFs()
-    #update config
-    await asyncio.create_task(updateConfig())
+        await s.CONNECTIONS[curr].sendFs()
+    else:
+        #update config
+        await asyncio.create_task(updateConfig())
 
 def loadFs():
     '''
@@ -129,8 +136,8 @@ async def main():
     #bind a socket
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind((s.HOST, s.PORT))
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((s.HOST, s.PORT))
         print("Socket successfully created")
     except socket.error as e:
         print("socket creation failed with error %s" %(e))
@@ -140,12 +147,11 @@ async def main():
     if len(connections) > 0:
         for connection, addr  in connections.items():
             try:
-                sock.connect((addr['ip'] , int(addr['port'])))
-                reader, writer = await asyncio.open_connection(sock=sock)
-                await client_connected(reader, writer, fs=True)
+                #sock.connect((addr['ip'] , int(addr['port'])))
+                reader, writer = await asyncio.open_connection(addr['ip'] , int(addr['port']))
+                await client_connected(reader, writer, addr['ip'], addr['port'], fs=True, conn=True)
             except Exception as e:
-                #print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
-                pass
+                print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
 
     #make server.
     try:
