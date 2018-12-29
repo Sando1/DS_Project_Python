@@ -8,29 +8,8 @@ import functools
 import settings as s
 import connection
 
-def handleSignal(signame):
-    print('Closing')
-    sys.exit(0)
 
-async def updateConfig():
-    '''
-    Description:Picks up an update from the config
-    Saves it to file
-    '''
-    with open(s.CONFIG_FILE,'r') as f:
-        data = json.load(f)
-    #make the connection dict
-    connections = {}
-    for conn, des in s.CONNECTIONS.items():
-        ip, port = conn.split('/')
-        connections[conn] = {'ip':ip,'port':port}
-    #append the thing to the main data
-    data['connections'] = connections
-    #open file again in write more and flush out everything
-    with open(s.CONFIG_FILE, 'w+') as f:
-        json.dump(data, f, indent=4)
-
-async def client_connected(reader, writer, addrA=' ', portA=0, fs=False, conn=False):
+async def client_connected(reader, writer, fs=False):
     '''
     Description: Accepts any connections that comes.
     Makes a connection instance that takes care of the reading and writing
@@ -38,27 +17,26 @@ async def client_connected(reader, writer, addrA=' ', portA=0, fs=False, conn=Fa
     '''
     addr = writer.get_extra_info('peername')
     print('connected with {} at {}'.format(addr[0],addr[1]))
-    curr = ' '
-    if conn == True:
-        curr = addrA+'/'+str(portA)
-        s.CONNECTIONS[curr] = connection.Connection(reader, writer)
-        await s.CONNECTIONS[curr].updateConn()
-    else:
-        curr = addr[0] +'/'+str(addr[1])
-        s.CONNECTIONS[curr] = connection.Connection(reader, writer)
+
+    adr = addrA+'/'+str(portA)
+    s.CONNECTIONS[adr] = connection.Connection(reader, writer)
 
     if fs == True:
+        #send for Fs
         await s.CONNECTIONS[curr].sendFs()
-    else:
-        #update config
-        await asyncio.create_task(updateConfig())
+
+        await asyncio.gather(
+            s.CONNECTIONS[adr].readTask,
+            s.CONNECTIONS[adr].writeTask,
+            s.CONNECTIONS[adr].handleTask,
+            )
 
 def loadFs():
     '''
     Description: Tries to pick up the file structure on boot.
     If none present, an empty dict is sent.
     '''
-    if not os.stat(s.FILES_FILE).st_size == 0:
+    if os.stat(s.FILES_FILE).st_size > 0:
         try:
             f2 = open(s.FILES_FILE ,'r+')
             files = json.load(f2)
@@ -68,13 +46,11 @@ def loadFs():
             #error in open
             f2 = open(s.FILES_FILE,'a+')
             f2.close()
-            return {"files": [{ "Type": "Root"}]}
         except (IOError,ValueError) as e:
             #flush everything from the file and start from 0
             f2 = open(s.FILES_FILE, 'w+')
             f2.close()
-            return {"files": [{ "Type": "Root"}]}
-        return {"files": [{ "Type": "Root"}]}
+    return {"files": [{ "Type": "Root"}]}
 
 def boot():
     '''
@@ -88,87 +64,83 @@ def boot():
             #exists, open and read file
             data = json.load(f)
 
-            #check host, port, connections, files
-            host = data['host'] if 'host' in data else ''
-            port = data['port'] if 'port' in data else ''
-            connections = data['connections'] if 'connections' in data else {}
-            servers = data['servers'] if 'servers' in data else {}
+            #check host, port, files, root
+            host = data['host'] if 'host' in data.keys() else ''
+            port = data['port'] if 'port' in data.keys() else ''
+            servers = data['servers'] if 'servers' in data.keys() else {}
+            root = data['root'] if 'root' in data.keys() else ''
             #make files folder
-            if not os.path.isdir('files'):
-                os.mkdir('files')
+            if not os.path.isdir(root):
+                os.mkdir(root)
             f.close()
-            return (connections, host, port, servers)
+
+            return (host, port, servers, root)
     except OSError as e:
         #error in open
         print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE,'a+')
         f.close()
-        return ({}, '', 0, '')
     except (IOError,ValueError) as e:
         #flush everything from the file and start from 0
         print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE, 'w+')
         f.close()
-        return ({},'', 0, '')
 
-    return ({}, None, None, {})
+    return (None, None, {}, None)
+
+
+async def send_connect():
+    '''
+    Description: Tries to connect with all the servers already in the config
+    file. Keeps on retrying until all connections have been connected.
+    then breaks out of the loop.
+    '''
+    while not all(value == True for value in s.SERVERS['connected'].values()) == True:
+        for connection, addr  in s.SERVERS.items():
+            if not addr['connected'] == True:
+                try:
+                    reader, writer = await asyncio.open_connection(addr['ip'] , int(addr['port']))
+                    await client_connected(reader, writer, addr['ip'], addr['port'], fs=True)
+                except Exception as e:
+                    print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
+
+
+async def server():
+    '''
+    Description: Makes the server. Starts the server.
+    Waits for incoming connections.
+    '''
+    try:
+        server = await asyncio.start_server(client_connected, s.HOST, s.PORT)
+        print('Server Starting on {} {} '.format(s.HOST, s.PORT))
+        async with server:
+            await server.serve_forever()
+    except asyncio.CancelledError:
+        print('Closing Server ')
+    except Exception as e:
+        print('Server Error :{}'.format(e))
+
 
 async def main():
-    #register signal handler
-    loop = asyncio.get_running_loop()
-    for signame in {'SIGTSTP'}:
-        loop.add_signal_handler(
-            getattr(signal, signame),
-            functools.partial(handleSignal, signame))
     #initialise globals
     s.init()
 
     #connections, files can be empty. shows starting from scratch
     #try and boot
-    connections, s.HOST, s.PORT, s.SERVERS = boot()
+    s.HOST, s.PORT, s.SERVERS, s.ROOT = boot()
     s.FILES = loadFs()
-    if s.FILES == None:
-        s.FILES = {"files": [{ "Type": "Root"}]}
+
     #if there was an error, exit
     if None in [s.HOST,s.PORT]:
-        print('Error in Boot')
+        print('Error in Boot. Reconfigure')
         sys.exit(0)
 
-    #bind a socket
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((s.HOST, s.PORT))
-        print("Socket successfully created")
-    except socket.error as e:
-        print("socket creation failed with error %s" %(e))
-        sys.exit(0)
+    #do the connections
+    await asyncio.gather(
+        send_connect(),
+        server(),
+    )
 
-    #now try and connect from the connections already saved
-    if len(connections) > 0:
-        for connection, addr  in connections.items():
-            try:
-                #sock.connect((addr['ip'] , int(addr['port'])))
-                reader, writer = await asyncio.open_connection(addr['ip'] , int(addr['port']))
-                await client_connected(reader, writer, addr['ip'], addr['port'], fs=True, conn=True)
-            except Exception as e:
-                print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
-
-    #make server.
-    try:
-        server = await asyncio.start_server(client_connected, sock=sock)
-        print('Server Starting on {} {} '.format(s.HOST, s.PORT))
-        async with server:
-            await server.serve_forever()
-    except asyncio.CancelledError:
-        print('Closing Server: ')
-        sock.close()
-    except Exception as e:
-        print('Server Error :{}'.format(e))
-        sock.close()
-
-#root path
-BASE_PATH = os.path.dirname(os.getcwd())
 
 try:
     asyncio.run(main())

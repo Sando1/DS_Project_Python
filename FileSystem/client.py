@@ -7,9 +7,8 @@ import functools
 from PyQt5 import QtCore, QtGui, QtWidgets
 import gui as main
 
-IP = 'localhost'
-PORT = 30000
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, CONNAGN = range(14)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
+IP, PORT, TEMP = None
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -53,7 +52,8 @@ class Client():
 
             data = await self.reader.readexactly(length)
             message = dill.loads(data)
-            return message
+            if not message.command in [CREATE, UPDATE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID]:
+                return message
         except (asyncio.CancelledError, asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
             print(e)
 
@@ -423,14 +423,9 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
             else:
                 print('File Cannot Open')
                 return
-
-
-if __name__ == '__main__':
-
-    #read from file
-    config = 'clientconfig.txt'
+def boot(config):
     try:
-        if not os.stat(config).st_size == 0:
+        if os.stat(config).st_size > 0:
             f = open(config,'r+')
 
             #exists, open and read file
@@ -439,11 +434,12 @@ if __name__ == '__main__':
             #check host, port, connections, files
             IP = data['host'] if 'host' in data else ''
             PORT = data['port'] if 'port' in data else ''
-
+            temp = data['root'] if 'root' in data else ''
             #make temp folder
-            if not os.path.isdir('temp'):
-                os.mkdir('temp')
+            if not os.path.isdir(temp):
+                os.mkdir(temp)
             f.close()
+            return (IP, PORT, temp)
 
     except OSError as e:
         #error in open
@@ -456,6 +452,18 @@ if __name__ == '__main__':
         print('Boot Error: {}'.format(e))
         f = open(config, 'w+')
         f.close()
+    return (None, None, None)
+
+if __name__ == '__main__':
+
+    #read from file
+    config = 'clientconfig.txt'
+
+    IP, PORT, TEMP = boot(config)
+
+    if None in [IP, PORT, TEMP]:
+        print('Error in Boot. Reconfigure')
+        sys.exit(0)
 
     #start the app
     app = QtWidgets.QApplication([])

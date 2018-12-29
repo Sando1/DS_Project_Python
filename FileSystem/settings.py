@@ -7,6 +7,7 @@ def init():
 
     global HOST
     global PORT
+    global ROOT
 
     CONFIG_FILE = 'config2.txt'
     FILES_FILE = 'files.txt'
@@ -16,3 +17,4 @@ def init():
 
     HOST = ''
     PORT = 0
+    ROOT = ''

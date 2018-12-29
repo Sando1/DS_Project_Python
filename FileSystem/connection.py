@@ -7,7 +7,7 @@ import json, os
 import settings as s
 import services as sr
 
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, CONNAGN = range(14)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -29,13 +29,6 @@ class Connection():
         self.handleTask = asyncio.create_task(self.handle())
         self.writeTask = asyncio.create_task(self.write())
 
-    async def updateConn(self):
-        '''
-        Description: Send an update to the connection with the right ip
-        and port
-        '''
-        data = CommandObject(CONNAGN, {'IP':s.HOST, 'PORT':s.PORT})
-        await self.write_q.put(data)
 
     async def sendFs(self):
         '''
@@ -361,23 +354,6 @@ class Connection():
                 '''
                 print('message processed')
 
-            if command.command == CONNAGN:
-                '''
-                CONNAGN: A server has sent a request to update the ip
-                and port for future reference
-                '''
-                data = command.data
-                new_ip = data['IP']
-                new_port = data['PORT']
-                curr_addr = self.writer.transport.get_extra_info('peername')
-                #print(curr_ip)
-                addr = '{}/{}'.format(curr_addr[0],curr_addr[1])
-                connection = s.CONNECTIONS[addr]
-                new_addr = '{}/{}'.format(new_ip,new_port)
-                s.CONNECTIONS[new_addr] = connection
-                del s.CONNECTIONS[addr]
-
-                print('message processed')
 
     async def updateFileFile(self):
         '''
@@ -397,7 +373,7 @@ class Connection():
         try:
             pending = asyncio.Task.all_tasks()
             # Run loop until tasks done:
-            asyncio.gather(*pending)
+            await asyncio.gather(*pending)
         finally:
             self.writer.transport.close()
             #print('Connection Ended')
