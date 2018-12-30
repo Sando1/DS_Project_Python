@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import gui as main
 
 CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
-IP, PORT, TEMP = None
+IP, PORT, TEMP = None, None, None
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -52,7 +52,7 @@ class Client():
 
             data = await self.reader.readexactly(length)
             message = dill.loads(data)
-            if not message.command in [CREATE, UPDATE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID]:
+            if not message.command in [CREATE, UPDATE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, INVALID]:
                 return message
         except (asyncio.CancelledError, asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
             print(e)
@@ -353,17 +353,20 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         Description: Save the file to server on close. For new files and update files
         '''
 
-        if exitStatus == 0 and os.path.isfile('temp/'+name):
+        if exitStatus == 0 and os.path.isfile(TEMP+'/'+name):
             #properly shutdown and check if file exists
-            with open('temp/'+name, 'r') as f:
+            with open(TEMP+'/'+name, 'r') as f:
                 data = f.read()
                 #send file contents to server
                 async with self.client:
                     await self.client.send(CommandObject(FILE, {name : data}))
-            #delete file from the client end.
-            os.remove('temp/'+name)
-        else:
-            pass
+                    #wait for success and delete file from the client end.
+                    message = await self.client.receive()
+                    if message.command == SUCCESS:
+                        os.remove(TEMP+'/'+name)
+                    elif message.command == ERROR:
+                        await __NewFsSave(name)
+                        await self.client.send(CommandObject(FILE, {name : data}))
 
     def openFile(self):
         '''
@@ -390,26 +393,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
             message = await self.client.receive()
             #if proper command received
             if message.command == FILE:
-                #save the file in temp folder
-                args = "gedit temp/{}".format(name)
-                try:
-                    with open('temp/{}'.format(name), 'w+') as f:
-                        f.write(message.data)
-                except IOError as e:
-                    print(e)
-                #open the file
-                process = QtCore.QProcess(self)
-                process.finished.connect(functools.partial(self.saveFileOnClose, name))
-                process.start(args)
-                self.processes.append(process)
-                #send the update command
-                data = CommandObject(UPDATE, name)
-                await self.client.send(data)
-                message = await self.client.receive()
-                if message.command == FS:
-                    self.Fs = message.data
-                    self.treeWidget.clear()
-                    self.populate()
+                await startFile(name)
 
             elif message.command == CONN:
             #connect to a different client and send the file
@@ -419,10 +403,47 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                     file = await new_client.receive()
                     if file.command == FILE:
                         #FIGURE THIS OUT
-                        print(file.data)
+                        await startFile(name)
             else:
                 print('File Cannot Open')
                 return
+
+
+    async def startFile(self, name):
+        '''
+        Description: Save the file in the temp folder.
+        Make a new process, open the file
+        '''
+        #save the file in temp folder
+        args = "gedit {}/{}".format(TEMP, name)
+        try:
+            with open('{}/{}'.format(TEMP,name), 'w+') as f:
+                f.write(message.data)
+        except IOError as e:
+            print(e)
+        #open the file
+        process = QtCore.QProcess(self)
+        process.finished.connect(functools.partial(self.saveFileOnClose, name))
+        process.start(args)
+        self.processes.append(process)
+        #send the update command
+        await sendUpdate(name)
+
+
+    async def sendUpdate(self, name):
+        '''
+        Description: Send the update command to the server to
+        update the FS.
+        '''
+        data = CommandObject(UPDATE, name)
+        await self.client.send(data)
+        message = await self.client.receive()
+        if message.command == FS:
+            self.Fs = message.data
+            self.treeWidget.clear()
+            self.populate()
+
+
 def boot(config):
     try:
         if os.stat(config).st_size > 0:

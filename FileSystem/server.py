@@ -18,18 +18,12 @@ async def client_connected(reader, writer, fs=False):
     addr = writer.get_extra_info('peername')
     print('connected with {} at {}'.format(addr[0],addr[1]))
 
-    adr = addrA+'/'+str(portA)
+    adr = '{}/{}'.format(addr[0],addr[1])
     s.CONNECTIONS[adr] = connection.Connection(reader, writer)
 
     if fs == True:
         #send for Fs
-        await s.CONNECTIONS[curr].sendFs()
-
-        await asyncio.gather(
-            s.CONNECTIONS[adr].readTask,
-            s.CONNECTIONS[adr].writeTask,
-            s.CONNECTIONS[adr].handleTask,
-            )
+        await s.CONNECTIONS[adr].sendFs()
 
 def loadFs():
     '''
@@ -95,15 +89,21 @@ async def send_connect():
     file. Keeps on retrying until all connections have been connected.
     then breaks out of the loop.
     '''
-    while not all(value == True for value in s.SERVERS['connected'].values()) == True:
+    done = False
+    while not done:
+        await asyncio.sleep(5)
         for connection, addr  in s.SERVERS.items():
-            if not addr['connected'] == True:
+            if connection == '{}/{}'.format(s.HOST,s.PORT) or addr['connected'] == True:
+                continue
+            elif addr['connected'] == False:
                 try:
                     reader, writer = await asyncio.open_connection(addr['ip'] , int(addr['port']))
-                    await client_connected(reader, writer, addr['ip'], addr['port'], fs=True)
+                    addr['connected'] = True
+                    done = True
+                    await client_connected(reader, writer, fs=True)
                 except Exception as e:
-                    print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
-
+                    #print('Error in {} {}: {}'.format(addr['ip'] , addr['port'], e))
+                    done = False
 
 async def server():
     '''
@@ -113,21 +113,25 @@ async def server():
     try:
         server = await asyncio.start_server(client_connected, s.HOST, s.PORT)
         print('Server Starting on {} {} '.format(s.HOST, s.PORT))
+        s.SERVERS['{}/{}'.format(s.HOST,s.PORT)]['connected'] = True
         async with server:
             await server.serve_forever()
     except asyncio.CancelledError:
         print('Closing Server ')
     except Exception as e:
         print('Server Error :{}'.format(e))
+    return
 
 
 async def main():
     #initialise globals
     s.init()
-
-    #connections, files can be empty. shows starting from scratch
     #try and boot
     s.HOST, s.PORT, s.SERVERS, s.ROOT = boot()
+    #add conn field to servers
+    for connection, addr  in s.SERVERS.items():
+        addr['connected'] = False
+
     s.FILES = loadFs()
 
     #if there was an error, exit
@@ -140,7 +144,7 @@ async def main():
         send_connect(),
         server(),
     )
-
+    return
 
 try:
     asyncio.run(main())

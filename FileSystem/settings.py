@@ -9,7 +9,7 @@ def init():
     global PORT
     global ROOT
 
-    CONFIG_FILE = 'config2.txt'
+    CONFIG_FILE = 'config.txt'
     FILES_FILE = 'files.txt'
     SERVERS = {}
     CONNECTIONS = {}

@@ -72,8 +72,7 @@ def NodeToSaveOn():
             for server in s.SERVERS.keys():
                 if server not in counts.keys():
                     return server
-        #sort
-        if len(counts) > 0:
+        else:
             counts = counts.most_common()
             return counts[-1][0]
 
@@ -125,7 +124,6 @@ def replicate(nodeSaved):
             if server == nodeSaved:
                 pass
             else:
-                print(server)
                 if server not in [counts[0][0],counts[1][0]]:
                     #print(servers[i])
                     nodes.append(server)
@@ -150,5 +148,4 @@ def checkName(name):
         while name in s.FILES.keys():
             i += 1
             name = '{}({}).{}'.format(temp[0],i,temp[1])
-
     return name
