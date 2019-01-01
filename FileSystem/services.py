@@ -48,6 +48,9 @@ def updateFs(remoteFs):
                 except Exception as e:
                     print('Error in updating FS: {}'.format(e))
                     return False
+        elif file not in s.FILES.keys():
+            s.FILES[file] = des
+
     return True
 
 def NodeToSaveOn():
@@ -96,44 +99,39 @@ def replicate(nodeSaved):
     #wont add the plus 1 because already saved on one server which is
     #the primary
     number = int(len(s.SERVERS)/2)+1
-    nodes = []
+    nodes = set()
     counts = counts.most_common()
     servers = list(s.SERVERS.keys())
     if len(counts) == 0:
         for _ in range(number):
             i =  random.randint(0,len(servers)-1)
-            if servers[i] != nodeSaved and servers[i] not in nodes:
-                nodes.append(servers[i])
+            if not servers[i] == nodeSaved:
+                nodes.add(servers[i])
             else:
                 if len(servers) > i+1:
-                    nodes.append(servers[i+1])
+                    nodes.add(servers[i+1])
                 else:
-                    nodes.append(servers[i-1])
+                    nodes.add(servers[i-1])
         return nodes
 
     if len(counts) == 1:
         for i in range(number):
-            if servers[i] == counts[0][0] or servers[i] == nodeSaved:
-                pass
-            else:
-                nodes.append(servers[i])
+            if not servers[i] == counts[0][0] and not servers[i] == nodeSaved:
+                nodes.add(servers[i])
         return nodes
 
     if len(counts) == 2:
         for server in servers:
-            if server == nodeSaved:
-                pass
-            else:
+            if not server == nodeSaved:
                 if server not in [counts[0][0],counts[1][0]]:
-                    #print(servers[i])
-                    nodes.append(server)
+                    nodes.add(server)
                     if len(nodes) == number - 1:
                         return nodes
         return nodes
 
     if len(counts) > number:
         for i in range(2,(2+number)):
-            nodes.append(counts[int('-'+str(i))][0])
+            nodes.add(counts[int('-'+str(i))][0])
         return nodes
 
     return nodes

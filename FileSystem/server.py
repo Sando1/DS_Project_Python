@@ -30,20 +30,22 @@ def loadFs():
     Description: Tries to pick up the file structure on boot.
     If none present, an empty dict is sent.
     '''
-    if os.stat(s.FILES_FILE).st_size > 0:
-        try:
+    try:
+        if os.stat(s.FILES_FILE).st_size > 0:
             f2 = open(s.FILES_FILE ,'r+')
             files = json.load(f2)
             f2.close()
             return files
-        except OSError as e:
-            #error in open
-            f2 = open(s.FILES_FILE,'a+')
-            f2.close()
-        except (IOError,ValueError) as e:
-            #flush everything from the file and start from 0
-            f2 = open(s.FILES_FILE, 'w+')
-            f2.close()
+    except OSError as e:
+        #error in open
+        print(e)
+        f2 = open(s.FILES_FILE,'a+')
+        f2.close()
+    except (IOError,ValueError) as e:
+        #flush everything from the file and start from 0
+        print(e)
+        f2 = open(s.FILES_FILE, 'w+')
+        f2.close()
     return {"files": [{ "Type": "Root"}]}
 
 def boot():
@@ -52,7 +54,7 @@ def boot():
     the file server on boot
     '''
     try:
-        if not os.stat(s.CONFIG_FILE).st_size == 0:
+        if os.stat(s.CONFIG_FILE).st_size > 0:
             f = open(s.CONFIG_FILE,'r+')
 
             #exists, open and read file
@@ -71,11 +73,14 @@ def boot():
             return (host, port, servers, root)
     except OSError as e:
         #error in open
+        print(e)
         print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE,'a+')
         f.close()
+
     except (IOError,ValueError) as e:
         #flush everything from the file and start from 0
+        print(e)
         print('Boot Error: {}'.format(e))
         f = open(s.CONFIG_FILE, 'w+')
         f.close()

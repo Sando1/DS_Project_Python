@@ -241,7 +241,9 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         name = self.lineEdit.text().strip()
         #empty string
         if name == '':
-            print("you cannot do this")
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("You cannot do this!");
+            msgBox.exec_();
             return
 
         self.treeWidget.removeItemWidget(child,0)
@@ -316,7 +318,9 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         item = self.treeWidget.currentItem()
         #check if item is parent
         if item.text(1) == 'D':
-            print('You shall not Do This')
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("You cannot do this!");
+            msgBox.exec_();
             return
         else:
             self.lineEdit = QtWidgets.QLineEdit()
@@ -365,7 +369,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                     if message.command == SUCCESS:
                         os.remove(TEMP+'/'+name)
                     elif message.command == ERROR:
-                        await __NewFsSave(name)
+                        await self.__NewFsSave(name)
                         await self.client.send(CommandObject(FILE, {name : data}))
 
     def openFile(self):

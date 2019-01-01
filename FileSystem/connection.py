@@ -100,29 +100,31 @@ class Connection():
 
                 node = sr.NodeToSaveOn()
                 if not node == None:
+                    print(node)
                     data[name]['Node'] = node
                     data[name]['Path'] = 'files/{}'.format(name)
                     data[name]['Version'] = 0
                     #find node to replicate on
                     nodesForReplication = sr.replicate(node)
-
+                    print(nodesForReplication)
                     #if some node found
                     if not nodesForReplication == None:
                         #save the Also of the data
-                        data[name]['Also'] = nodesForReplication
+                        data[name]['Also'] = list(nodesForReplication)
 
                     #update the FS
                     s.FILES[new_name] = [data[name]]
                     #send an update to all servers
                     for name in s.SERVERS.keys():
-                        if not name == self.local_server or name not in s.CONNECTIONS.keys():
+                        if not name == self.local_server and name in s.CONNECTIONS.keys():
+                            print(name)
+                            print(s.FILES)
                             await s.CONNECTIONS[name].write_q.put(CommandObject(FS, s.FILES))
 
                     #make an update in the local file
                     await self.updateFileFile()
                     #send an update to client
                     await self.write_q.put(CommandObject(FS, s.FILES))
-                print('message processed')
 
             if command.command == UPDATE:
                 '''
@@ -148,14 +150,14 @@ class Connection():
                 await self.updateFileFile()
 
                 #send an update to all servers
+                print(s.FILES)
                 for name in s.SERVERS.keys():
                     if not name == self.local_server and name in s.CONNECTIONS.keys():
+                        print('here')
                         await s.CONNECTIONS[name].write_q.put(CommandObject(FS, s.FILES))
 
                 #send an update to client
                 await self.write_q.put(CommandObject(FS, s.FILES))
-
-                print('message processed')
 
             if command.command == FS:
                 '''
@@ -175,8 +177,6 @@ class Connection():
                     else:
                         #update FS
                         await self.updateFileFile()
-
-                print('message processed')
 
             if command.command == NEWFOLDER:
                 '''
@@ -201,7 +201,6 @@ class Connection():
 
                 #send an update to client
                 await self.write_q.put(CommandObject(FS, s.FILES))
-                print('message processed')
 
             if command.command == RENAME:
                 '''
@@ -224,8 +223,6 @@ class Connection():
 
                     #send an update to client
                     await self.write_q.put(CommandObject(FS, s.FILES))
-
-                print('message processed')
 
             if command.command == FILE:
                 '''
@@ -279,8 +276,6 @@ class Connection():
                     if nodes[i] in s.CONNECTIONS.keys():
                         await s.CONNECTIONS[nodes[i]].write_q.put(CommandObject(REPLICATEFILE, command.data))
 
-                print('message processed')
-
             if command.command == REPLICATEFILE:
                 '''
                 REPLICATEFILE COMMAND:
@@ -333,7 +328,6 @@ class Connection():
                             IP, PORT = nodes[0].split('/')
                             await self.write_q.put(CommandObject(CONN, {'IP': IP, 'PORT':PORT}))
                             break
-                print('message processed')
 
             if command.command == QUIT:
                 '''
@@ -342,21 +336,13 @@ class Connection():
                 end connection callback
                 '''
                 await self.endConnection()
-                print('message processed')
 
-            if command.command == ERROR:
+            if command.command == [ERROR, SUCCESS, INVALID]:
                 '''
-                ERROR COMMAND:
+                ERROR, SUCCESS and INVALID COMMAND:
                 Server can't do much.
                 '''
-                print('message processed')
-
-            if command.command in [SUCCESS, INVALID]:
-                '''
-                SUCCESS and INVALID COMMAND:
-                Server doesnt have to do anything
-                '''
-                print('message processed')
+            print('message processed')
 
 
     async def updateFileFile(self):
@@ -365,8 +351,11 @@ class Connection():
         Saves it to files.txt
         '''
         #open file in write more and flush out everything
-        with open(s.FILES_FILE, 'w+') as f:
-            json.dump(s.FILES, f, indent=4)
+        try:
+            with open(s.FILES_FILE, 'w+') as f:
+                json.dump(s.FILES, f, indent=4)
+        except Exception as e:
+            print(e)
 
     async def endConnection(self):
         '''
