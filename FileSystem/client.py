@@ -397,7 +397,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
             message = await self.client.receive()
             #if proper command received
             if message.command == FILE:
-                await startFile(name)
+                await self.startFile(name, message.data)
 
             elif message.command == CONN:
             #connect to a different client and send the file
@@ -407,13 +407,13 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
                     file = await new_client.receive()
                     if file.command == FILE:
                         #FIGURE THIS OUT
-                        await startFile(name)
+                        await self.startFile(name, message.data)
             else:
                 print('File Cannot Open')
                 return
 
 
-    async def startFile(self, name):
+    async def startFile(self, name, data):
         '''
         Description: Save the file in the temp folder.
         Make a new process, open the file
@@ -422,7 +422,7 @@ class Browser(main.Ui_MainWindow,QtWidgets.QMainWindow):
         args = "gedit {}/{}".format(TEMP, name)
         try:
             with open('{}/{}'.format(TEMP,name), 'w+') as f:
-                f.write(message.data)
+                f.write(data)
         except IOError as e:
             print(e)
         #open the file
