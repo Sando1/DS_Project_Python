@@ -341,7 +341,7 @@ class Connection():
                 #update FS
                 await updateFileFile()
                 #send success to sender
-                await self.write_q.put(CommandObject(SUCCESS)
+                await self.write_q.put(CommandObject(SUCCESS))
 
             if command.command == QUIT:
                 '''
