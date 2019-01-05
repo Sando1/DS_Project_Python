@@ -7,7 +7,7 @@ import functools
 from PyQt5 import QtCore, QtGui, QtWidgets
 import gui as main
 
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, DEL = range(14)
 IP, PORT, TEMP = None, None, None
 
 class CommandObject(object):
@@ -52,7 +52,7 @@ class Client():
 
             data = await self.reader.readexactly(length)
             message = dill.loads(data)
-            if not message.command in [CREATE, UPDATE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, INVALID]:
+            if not message.command in [CREATE, UPDATE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, INVALID, DEL]:
                 return message
         except (asyncio.CancelledError, asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionResetError) as e:
             print(e)

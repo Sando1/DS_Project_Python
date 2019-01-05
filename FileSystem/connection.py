@@ -7,7 +7,7 @@ import json, os
 import settings as s
 import services as sr
 
-CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID = range(13)
+CREATE, UPDATE, FS, FILE, REPLICATEFILE, GIVEFILE, NEWFOLDER, RENAME, QUIT, ERROR, SUCCESS, CONN, INVALID, DEL = range(14)
 
 class CommandObject(object):
     '''A command object to pass. It ensures security'''
@@ -217,6 +217,7 @@ class Connection():
                     #send an update to all servers
                     for name in s.SERVERS.keys():
                         if not name == self.local_server and name in s.CONNECTIONS.keys():
+                            await s.CONNECTIONS[name].write_q.put(CommandObject(DEL, oldName))
                             await s.CONNECTIONS[name].write_q.put(CommandObject(FS, s.FILES))
                     #update fs file
                     await self.updateFileFile()
@@ -328,6 +329,19 @@ class Connection():
                             IP, PORT = nodes[0].split('/')
                             await self.write_q.put(CommandObject(CONN, {'IP': IP, 'PORT':PORT}))
                             break
+
+            if command.command == DEL:
+                '''
+                DELETE COMMAND:
+                Delete an entry from the file structure.
+                Only between servers to update the FS correctly.
+                '''
+                toDelete = command.data
+                del s.FILES[toDelete]
+                #update FS
+                await updateFileFile()
+                #send success to sender
+                await self.write_q.put(CommandObject(SUCCESS)
 
             if command.command == QUIT:
                 '''
